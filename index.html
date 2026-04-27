@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chainalysis — Consolidated Cash Position Dashboard past week</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+:root{--navy:#0a1628;--dark:#111b2e;--card:#162035;--card2:#1a2640;--border:#243050;--accent:#4f8cff;--accent2:#38cfb8;--accent3:#f0b040;--text:#e8ecf4;--dim:#8c99b2;--green:#34d399;--red:#f87171;--purple:#a78bfa}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--navy);color:var(--text);min-height:100vh;max-width:100vw;overflow-x:hidden}
+.hdr{background:linear-gradient(135deg,#0d1f3c,#132744);padding:24px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px}
+.hdr-left{display:flex;align-items:center;gap:16px}
+.logo{width:42px;height:42px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:11px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px;color:#fff}
+.hdr h1{font-size:21px;font-weight:700;letter-spacing:-.3px}.hdr h1 b{color:var(--accent)}
+.hdr-right{display:flex;align-items:center;gap:16px}
+.badge{background:rgba(79,140,255,.12);color:var(--accent);padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid rgba(79,140,255,.25);letter-spacing:.4px}
+.ts{color:var(--dim);font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;padding:22px 24px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;position:relative;overflow:hidden;transition:all .2s}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0}
+.kpi:nth-child(1)::before{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.kpi:nth-child(2)::before{background:linear-gradient(90deg,#a78bfa,#818cf8)}
+.kpi:nth-child(3)::before{background:linear-gradient(90deg,var(--accent2),var(--green))}
+.kpi:nth-child(4)::before{background:linear-gradient(90deg,var(--accent3),#f97316)}
+.kpi:nth-child(5)::before{background:linear-gradient(90deg,var(--green),var(--accent2))}
+.kpi:nth-child(6)::before{background:linear-gradient(90deg,#e879f9,#a78bfa)}
+.kpi:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.3)}
+.kpi-l{font-size:10px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px}
+.kpi-v{font-size:22px;font-weight:800;letter-spacing:-.5px}.kpi-s{font-size:10px;color:var(--dim);margin-top:4px}
+.kpi-delta{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-top:4px}
+.kpi-delta.up{background:rgba(52,211,153,.12);color:var(--green)}.kpi-delta.down{background:rgba(248,113,113,.12);color:var(--red)}
+.filters{padding:2px 24px 14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.fg{display:flex;align-items:center;gap:7px}.fg label{font-size:11px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.6px}
+select,.si{background:var(--card);border:1px solid var(--border);color:var(--text);padding:7px 13px;border-radius:8px;font-size:13px;outline:none;transition:border-color .2s}
+select:hover,.si:hover{border-color:var(--accent)}select:focus,.si:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,140,255,.15)}
+.si{width:210px}.rbtn{background:transparent;border:1px solid var(--border);color:var(--dim);padding:7px 15px;border-radius:8px;font-size:12px;cursor:pointer;transition:all .2s}.rbtn:hover{border-color:var(--accent);color:var(--accent)}
+.refresh-btn{background:rgba(52,211,153,.12);border:1px solid var(--green);color:var(--green);padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:5px}.refresh-btn:hover{background:rgba(52,211,153,.25);transform:scale(1.03)}.refresh-btn .spin{display:inline-block;transition:transform .3s}.refresh-btn:active .spin{transform:rotate(360deg)}
+.grid{padding:0 24px 40px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.pnl{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}.pnl-full{grid-column:1/-1}
+.pnl-t{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:9px}.pnl-t .ic{font-size:17px}
+.cw{position:relative;width:100%}.cw.bar{height:380px}.cw.dnt{height:320px;display:flex;justify-content:center}
+.tw{overflow:hidden;border-radius:10px;border:1px solid var(--border);max-width:100%}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead th{background:rgba(79,140,255,.08);padding:6px 8px;text-align:left;font-weight:600;font-size:9px;text-transform:uppercase;letter-spacing:.3px;color:var(--dim);border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{color:var(--accent)}thead th .sa{margin-left:2px;font-size:8px}
+tbody tr{border-bottom:1px solid rgba(36,48,80,.4);transition:background .15s}tbody tr:hover{background:rgba(79,140,255,.06)}
+tbody td{padding:6px 8px;white-space:nowrap;font-size:11px}.tr{text-align:right}.mono{font-family:'SF Mono','Fira Code',monospace;font-size:10px}
+.eb{background:rgba(79,140,255,.1);color:var(--accent);padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600}
+.cf{display:inline-flex;align-items:center;gap:5px}.dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.total-row{background:rgba(52,211,153,.08)!important;font-weight:700}.total-row td{border-top:2px solid var(--accent2)}
+.pos{color:var(--green)}.neg{color:var(--red)}.fxp{color:var(--purple)}
+.it{position:relative;display:inline-block;cursor:help;color:var(--dim);font-size:13px;margin-left:6px}
+.it:hover::after{content:attr(data-t);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);background:#1e293b;color:#e2e8f0;padding:8px 12px;border-radius:8px;font-size:11px;white-space:nowrap;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.legend-row{display:flex;gap:18px;margin-bottom:10px;font-size:11px;color:var(--dim)}
+.legend-row span{display:inline-flex;align-items:center;gap:5px}
+.legend-dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+@media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr}}
+@media(max-width:768px){.kpis{grid-template-columns:repeat(2,1fr)}.hdr,.kpis,.filters,.grid{padding-left:16px;padding-right:16px}}
+@media(max-width:500px){.kpis{grid-template-columns:1fr}.kpi-v{font-size:18px}}
+@keyframes fu{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spinning{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.ai{animation:fu .45s ease-out both}.d1{animation-delay:.08s}.d2{animation-delay:.15s}.d3{animation-delay:.22s}.d4{animation-delay:.3s}.d5{animation-delay:.38s}.d6{animation-delay:.45s}
+</style>
+</head>
+<body>
+<div class="hdr"><div class="hdr-left"><div class="logo">C</div><h1><b>Chainalysis</b> — Consolidated Cash Position Dashboard past week</h1></div><div class="hdr-right"><div class="badge">EXECUTIVE VIEW</div><div class="ts">Week ending 26 Apr 2026 • Source: Cash Burn File</div><div class="ts" style="font-weight:600;color:var(--text)">Prepared by Lee Calcutt</div><button class="refresh-btn" onclick="refreshDashboard()" title="Hard refresh to get latest data from server"><span class="spin">🔄</span> Refresh</button></div></div>
+<div class="kpis">
+  <div class="kpi ai d1"><div class="kpi-l">Total Chainalysis Unrestricted Cash</div><div class="kpi-v" id="k1">—</div><div class="kpi-s">Consolidated USD (ex CGS &amp; Bitcoin)</div><div class="kpi-delta" id="k1d"></div></div>
+  <div class="kpi ai d2"><div class="kpi-l">Total CGS Unrestricted Cash</div><div class="kpi-v" id="k7">—</div><div class="kpi-s">CGS entity cash (USD)</div><div class="kpi-delta" id="k7d"></div></div>
+  <div class="kpi ai d3"><div class="kpi-l">Restricted Cash</div><div class="kpi-v" id="k2">—</div><div class="kpi-s">Deposits &amp; guarantees</div><div class="kpi-delta" id="k2d"></div></div>
+  <div class="kpi ai d4"><div class="kpi-l">Total Consolidated Cash Position</div><div class="kpi-v" id="k3">—</div><div class="kpi-s">Unrestricted + restricted</div><div class="kpi-delta" id="k3d"></div></div>
+  <div class="kpi ai d5"><div class="kpi-l">FX Gain / (Loss) WoW</div><div class="kpi-v" id="k6">—</div><div class="kpi-s">Column N — Difference Gain/(Loss)</div><div class="kpi-delta" id="k6d"></div></div>
+  <div class="kpi ai d6"><div class="kpi-l">Currencies / Accounts</div><div class="kpi-v" id="k5">—</div><div class="kpi-s" id="k5s"></div></div>
+</div>
+<div class="filters">
+  <div class="fg"><label>Entity</label><select id="fEnt"><option value="ALL">All Entities</option></select></div>
+  <div class="fg"><label>Currency</label><select id="fCcy"><option value="ALL">All Currencies</option></select></div>
+  <div class="fg"><label>Bank</label><select id="fBank"><option value="ALL">All Banks</option></select></div>
+  <div class="fg"><label>Search</label><input type="text" class="si" id="fSearch" placeholder="Search account or tag…"></div>
+  <button class="rbtn" onclick="resetF()">↻ Reset</button>
+</div>
+<div class="grid">
+  <div class="pnl ai d2"><div class="pnl-t"><span class="ic">📊</span> Consolidated Cash by Chainalysis Legal Entity (USD)</div><div class="cw bar"><canvas id="chEnt"></canvas></div></div>
+  <div class="pnl ai d3"><div class="pnl-t"><span class="ic">💱</span> Consolidated Cash by Currency (USD Equivalent)</div><div class="cw dnt"><canvas id="chCcy"></canvas></div></div>
+
+  <!-- Consolidated USD table -->
+  <div class="pnl pnl-full ai d3">
+    <div class="pnl-t"><span class="ic">🏦</span> Consolidated Cash — USD Conversion <span class="it" data-t="FX rates from Cash Burn File week ending 26 Apr 2026">ⓘ</span></div>
+    <div class="tw"><table id="tConsol"><thead><tr>
+      <th onclick="sC(0)">Legal Entity <span class="sa">⇅</span></th>
+      <th onclick="sC(1)">Currency <span class="sa">⇅</span></th>
+      <th onclick="sC(2)" class="tr">Local Balance <span class="sa">⇅</span></th>
+      <th onclick="sC(3)">FX Rate <span class="sa">⇅</span></th>
+      <th onclick="sC(4)" class="tr">USD Equivalent <span class="sa">⇅</span></th>
+      <th class="tr">%</th>
+      <th onclick="sC(6)" class="tr">WoW Δ <span class="sa">⇅</span></th>
+      <th onclick="sC(7)" class="tr">FX Gain/(Loss) <span class="sa">⇅</span></th>
+    </tr></thead><tbody id="bConsol"></tbody></table></div>
+  </div>
+
+  <!-- Full detail table -->
+  <div class="pnl pnl-full ai d6">
+    <div class="pnl-t"><span class="ic">📋</span> Account Detail</div>
+    <div class="tw"><table id="tDetail"><thead><tr>
+      <th onclick="sD(0)">Legal Entity <span class="sa">⇅</span></th>
+      <th onclick="sD(1)">Account Tag <span class="sa">⇅</span></th>
+      <th onclick="sD(2)">Currency <span class="sa">⇅</span></th>
+      <th onclick="sD(3)" class="tr">Local Balance <span class="sa">⇅</span></th>
+      <th onclick="sD(4)">FX Rate <span class="sa">⇅</span></th>
+      <th onclick="sD(5)" class="tr">USD Balance <span class="sa">⇅</span></th>
+      <th onclick="sD(6)" class="tr">WoW Δ <span class="sa">⇅</span></th>
+      <th onclick="sD(7)" class="tr">FX Gain/(Loss) <span class="sa">⇅</span></th>
+    </tr></thead><tbody id="bDetail"></tbody></table></div>
+  </div>
+  <!-- WoW Movement -->
+  <div class="pnl pnl-full ai d3">
+    <div class="pnl-t"><span class="ic">📈</span> Week-over-Week Movement by Entity (USD)</div>
+    <div class="cw bar" style="height:340px"><canvas id="chWoW"></canvas></div>
+  </div>
+
+  <!-- FX Impact by Currency -->
+  <div class="pnl ai d4">
+    <div class="pnl-t"><span class="ic">🔀</span> FX Impact by Currency (USD)</div>
+    <div class="cw bar" style="height:320px"><canvas id="chFxCcy"></canvas></div>
+  </div>
+
+  <!-- FX History -->
+  <div class="pnl ai d4">
+    <div class="pnl-t"><span class="ic">📉</span> Cumulative FX Movement History</div>
+    <div class="cw bar" style="height:320px"><canvas id="chFxHist"></canvas></div>
+  </div>
+  <!-- FX Rate Movement Table -->
+  <div class="pnl pnl-full ai d5">
+    <div class="pnl-t"><span class="ic">📐</span> FX Rate Movement — Week over Week</div>
+    <div class="tw"><table><thead><tr>
+      <th>Currency</th><th class="tr">Prior Rate</th><th class="tr">Current Rate</th><th class="tr">Change</th><th class="tr">Move %</th><th class="tr">FX Impact (USD)</th>
+    </tr></thead><tbody id="bFxRates"></tbody></table></div>
+  </div>
+
+</div>
+<script>
+var DATA = [
+  {
+    "tag": "HSBC US Operating",
+    "acct": "953024318",
+    "entity": "USA",
+    "ccy": "USD",
+    "local": 28719306.5,
+    "fx": 1.0,
+    "usd": 28719306.5,
+    "prior": 29996619.43,
+    "prior_fx": 1.0,
+    "fx_move_pct": 0.0,
+    "wow": -1277312.93,
+    "oper": -1277312.93,
+    "fx_impact": -0.0
+  },
+  {
+    "tag": "HSBC Sweep",
+    "acct": "953028364",
+    "entity": "USA",
+    "ccy": "USD",
+    "local": 0.0,
+    "fx": 1.0,
+    "usd": 0.0,
+    "prior": 0.0,
+    "prior_fx": 1.0,
+    "fx_move_pct": 0.0,
+    "wow": 0.0,
+    "oper": 0.0,
+    "fx_impact": 0.0
+  },
+  {
+    "tag": "HSBC US AR",
+    "acct": "42030919",
+    "entity": "USA",
+    "ccy": "USD",
+    "local": 0.0,
+    "fx": 1.0,
+    "usd": 0.0,
+    "prior": 0.0,
+    "prior_fx": 1.0,
+    "fx_move_pct": 0.0,
+    "wow": 0.0,
+    "oper": 0.0,
+    "fx_impact": 0.0
+  },
+  {
+    "tag": "HSBC US EUR",
+    "acct": "401276-92337588",
+    "entity": "USA",
+    "ccy": "EUR",
+    "local": 469509.52,
+    "fx": 1.17218,
+    "usd": 550349.67,
+    "prior": 415640.05,
+    "prior_fx": 1.17935,
+    "fx_move_pct": -0.00608,
+    "wow": 134709.61,
+    "oper": 137236.55,
+    "fx_impact": -2526.93
+  },
+  {
+    "tag": "UBS",
+    "acct": "CP-E3667 2K",
+    "entity": "USA",
+    "ccy": "USD",
+    "local": 24325828.66,
+    "fx": 1.0,
+    "usd": 24325828.66,
+    "prior": 24325828.66,
+    "prior_fx": 1.0,
+    "fx_move_pct": 0.0,
+    "wow": 0.0,
+    "oper": 0.0,
+    "fx_impact": 0.0
+  },
+  {
+    "tag": "JPM",
+    "acct": "5033409",
+    "entity": "USA",
+    "ccy": "USD",
+    "local": 51478111.4,
+    "fx": 1.0,
+    "usd": 51478111.4,
+    "prior": 51478111.4,
+    "prior_fx": 1.0,
+    "fx_move_pct": 0.0,
+    "wow": 0.0,
+    "oper": 0.0,
+    "fx_impact": 0.0
+  },
+  {
+    "tag": "Erebor",
+    "acct": "37214341787285",
+    "entity": "USA",
+    "ccy": "USD",
+    "local": 2000650.95,
+    "fx": 1.0,
+    "usd": 2000650.95,
+    "prior": 2000650.95,
+    "prior_fx": 1.0,
+    "fx_move_pct": 0.0,
+    "wow": 0.0,
+    "oper": 0.0,
+    "fx_impact": 0.0
+  },
+  {
+    "tag": "HSBC AU",
+    "acct": "011-700812-001",
+    "entity": "Australia",
+    "ccy": "AUD",
+    "local": 731156.77,
+    "fx": 0.7153,
+    "usd": 522996.44,
+    "prior": 529871.76,
+    "prior_fx": 0.71728,
+    "fx_move_pct": -0.00276,
+    "wow": -6875.32,
+    "oper": -5412.65,
+    "fx_impact": -1462.67
+  },
+  {
+    "tag": "HSBC RBC CA",
+    "acct": "27051056217",
+    "entity": "Canada",
+    "ccy": "CAD",
+    "local": 986681.41,
+    "fx": 0.7316,
+    "usd": 721856.12,
+    "prior": 722279.08,
+    "prior_fx": 0.731105,
+    "fx_move_pct": 0.000677,
+    "wow": -422.96,
+    "oper": -911.98,
+    "fx_impact": 489.02
+  },
+  {
+    "tag": "HSBC RBC CA USD",
+    "acct": "4053161",
+    "entity": "Canada",
+    "ccy": "USD",
+    "local": 108061.11,
+    "fx": 1.0,
+    "usd": 108061.11,
+    "prior": 108061.11,
+    "prior_fx": 1.0,
+    "fx_move_pct": 0.0,
+    "wow": 0.0,
+    "oper": 0.0,
+    "fx_impact": 0.0
+  },
+  {
+    "tag": "HSBC DK",
+    "acct": "DK5030000012955960",
+    "entity": "Denmark",
+    "ccy": "DKK",
+    "local": 14997616.62,
+    "fx": 0.15686,
+    "usd": 2352526.14,
+    "prior": 2668082.32,
+    "prior_fx": 0.157815,
+    "fx_move_pct": -0.006051,
+    "wow": -315556.17,
+    "oper": -299410.57,
+    "fx_impact": -16145.6
+  },
+  {
+    "tag": "HSBC DK EUR",
+    "acct": "DK2230004383254507",
+    "entity": "Denmark",
+    "ccy": "EUR",
+    "local": 29309.23,
+    "fx": 1.17218,
+    "usd": 34355.69,
+    "prior": 34565.84,
+    "prior_fx": 1.17935,
+    "fx_move_pct": -0.00608,
+    "wow": -210.15,
+    "oper": 0.0,
+    "fx_impact": -210.15
+  },
+  {
+    "tag": "HSBC JP",
+    "acct": "009-061292-001",
+    "entity": "Japan",
+    "ccy": "JPY",
+    "local": 25384805.0,
+    "fx": 0.006275,
+    "usd": 159286.1,
+    "prior": 251888.62,
+    "prior_fx": 0.006288,
+    "fx_move_pct": -0.002018,
+    "wow": -92602.52,
+    "oper": -92094.14,
+    "fx_impact": -508.38
+  },
+  {
+    "tag": "HSBC SG",
+    "acct": "141-434514-001",
+    "entity": "Singapore",
+    "ccy": "SGD",
+    "local": 903949.1,
+    "fx": 0.783699,
+    "usd": 708424.01,
+    "prior": 1117043.88,
+    "prior_fx": 0.786068,
+    "fx_move_pct": -0.003014,
+    "wow": -408619.88,
+    "oper": -405253.4,
+    "fx_impact": -3366.47
+  },
+  {
+    "tag": "KEB KR",
+    "acct": "11591005608804",
+    "entity": "South Korea",
+    "ccy": "KRW",
+    "local": 5064244.0,
+    "fx": 0.000677,
+    "usd": 3429.57,
+    "prior": 3422.64,
+    "prior_fx": 0.000676,
+    "fx_move_pct": 0.002024,
+    "wow": 6.93,
+    "oper": 0.0,
+    "fx_impact": 6.93
+  },
+  {
+    "tag": "HSBC KR",
+    "acct": "002-192912-001",
+    "entity": "South Korea",
+    "ccy": "KRW",
+    "local": 2270044175.0,
+    "fx": 0.000677,
+    "usd": 1537303.43,
+    "prior": 2065818.24,
+    "prior_fx": 0.000676,
+    "fx_move_pct": 0.002024,
+    "wow": -528514.81,
+    "oper": -532696.3,
+    "fx_impact": 4181.49
+  },
+  {
+    "tag": "HSBC NL",
+    "acct": "NL84HSBC1045691001",
+    "entity": "Netherlands",
+    "ccy": "EUR",
+    "local": 379091.99,
+    "fx": 1.17218,
+    "usd": 444364.05,
+    "prior": 763386.8,
+    "prior_fx": 1.17935,
+    "fx_move_pct": -0.00608,
+    "wow": -319022.76,
+    "oper": -314381.65,
+    "fx_impact": -4641.1
+  },
+  {
+    "tag": "HSBC UA",
+    "acct": "AE940200000023752579001",
+    "entity": "UAE",
+    "ccy": "AED",
+    "local": 1959829.9,
+    "fx": 0.272246,
+    "usd": 533555.85,
+    "prior": 536153.82,
+    "prior_fx": 0.272294,
+    "fx_move_pct": -0.000176,
+    "wow": -2597.97,
+    "oper": -2503.46,
+    "fx_impact": -94.51
+  },
+  {
+    "tag": "HSBC UK",
+    "acct": "GB44HBUK40116021340670",
+    "entity": "UK",
+    "ccy": "GBP",
+    "local": 3349020.42,
+    "fx": 1.3532,
+    "usd": 4531894.43,
+    "prior": 3711252.92,
+    "prior_fx": 1.35315,
+    "fx_move_pct": 3.7e-05,
+    "wow": 820641.51,
+    "oper": 820504.38,
+    "fx_impact": 137.13
+  },
+  {
+    "tag": "Alterya HSBC USD",
+    "acct": "104049804",
+    "entity": "Israel",
+    "ccy": "USD",
+    "local": 269396.15,
+    "fx": 1.0,
+    "usd": 269396.15,
+    "prior": 385609.76,
+    "prior_fx": 1.0,
+    "fx_move_pct": 0.0,
+    "wow": -116213.61,
+    "oper": -116213.61,
+    "fx_impact": 0.0
+  },
+  {
+    "tag": "Alterya HSBC USD2",
+    "acct": "104050128",
+    "entity": "Israel",
+    "ccy": "USD",
+    "local": 86070.89,
+    "fx": 1.0,
+    "usd": 86070.89,
+    "prior": 86070.89,
+    "prior_fx": 1.0,
+    "fx_move_pct": 0.0,
+    "wow": 0.0,
+    "oper": 0.0,
+    "fx_impact": 0.0
+  },
+  {
+    "tag": "Alterya HSBC ILS",
+    "acct": "101-037216-485",
+    "entity": "Israel",
+    "ccy": "ILS",
+    "local": 5313834.31,
+    "fx": 0.334821,
+    "usd": 1779183.32,
+    "prior": 1792557.69,
+    "prior_fx": 0.334141,
+    "fx_move_pct": 0.002035,
+    "wow": -13374.37,
+    "oper": -17022.35,
+    "fx_impact": 3647.98
+  },
+  {
+    "tag": "Alterya Leumi ILS",
+    "acct": "864-00660070",
+    "entity": "Israel",
+    "ccy": "ILS",
+    "local": 0.0,
+    "fx": 0.334821,
+    "usd": 0.0,
+    "prior": 0.0,
+    "prior_fx": 0.334141,
+    "fx_move_pct": 0.002035,
+    "wow": 0.0,
+    "oper": 0.0,
+    "fx_impact": 0.0
+  },
+  {
+    "tag": "Hexagate Leumi ILS",
+    "acct": "101-034122-500",
+    "entity": "Israel",
+    "ccy": "ILS",
+    "local": 447540.39,
+    "fx": 0.334821,
+    "usd": 149845.92,
+    "prior": 33781.61,
+    "prior_fx": 0.334141,
+    "fx_move_pct": 0.002035,
+    "wow": 116064.31,
+    "oper": 115995.56,
+    "fx_impact": 68.75
+  },
+  {
+    "tag": "HSBC - CGS",
+    "acct": "42029759",
+    "entity": "CGS",
+    "ccy": "USD",
+    "local": 256837.58,
+    "fx": 1.0,
+    "usd": 256837.58,
+    "prior": 256837.58,
+    "prior_fx": 1.0,
+    "fx_move_pct": 0.0,
+    "wow": 0.0,
+    "oper": 0.0,
+    "fx_impact": 0.0
+  },
+  {
+    "tag": "RAMP - CGS",
+    "acct": "0922",
+    "entity": "CGS",
+    "ccy": "USD",
+    "local": 1903418.94,
+    "fx": 1.0,
+    "usd": 1903418.94,
+    "prior": 1903418.94,
+    "prior_fx": 1.0,
+    "fx_move_pct": 0.0,
+    "wow": 0.0,
+    "oper": 0.0,
+    "fx_impact": 0.0
+  },
+  {
+    "tag": "BOA - CGS",
+    "acct": "5315",
+    "entity": "CGS",
+    "ccy": "USD",
+    "local": 11892580.8,
+    "fx": 1.0,
+    "usd": 11892580.8,
+    "prior": 11892580.8,
+    "prior_fx": 1.0,
+    "fx_move_pct": 0.0,
+    "wow": 0.0,
+    "oper": 0.0,
+    "fx_impact": 0.0
+  }
+];
+var RESTRICTED = [
+  {
+    "label": "HSBC US Rent Deposit (SBLC account RentDep)",
+    "usd": 9737391.0
+  },
+  {
+    "label": "HSBC Bank Guarantee (HSBC UK USD Guarant)",
+    "usd": 29000.0
+  },
+  {
+    "label": "Deposit (Hexagate old office)",
+    "usd": 66371.01
+  },
+  {
+    "label": "LOC Rent Guarantee (Alterya new office)",
+    "usd": 395548.51
+  }
+];
+var FXHISTORY = [
+  {
+    "date": "31/01/2026",
+    "value": 38466.38,
+    "label": "FX gain movement from 31/01/2026"
+  },
+  {
+    "date": "08/02/2026",
+    "value": -45093.22,
+    "label": "FX loss movement from 08/02/2026"
+  },
+  {
+    "date": "15/02/2026",
+    "value": 118055.58,
+    "label": "FX gain movement from 15/02/2026"
+  },
+  {
+    "date": "23/02/2026",
+    "value": -126049.3,
+    "label": "FX loss movement from 23/02/2026"
+  },
+  {
+    "date": "28/02/2026",
+    "value": 12898.41,
+    "label": "FX gain movement from 28/02/2026"
+  },
+  {
+    "date": "08/03/2026",
+    "value": -104429.81,
+    "label": "FX loss movement from 08/03/2026"
+  },
+  {
+    "date": "15/03/2026",
+    "value": -217888.66,
+    "label": "FX loss movement from 15/03/2026"
+  },
+  {
+    "date": "22/03/2026",
+    "value": 99980.0,
+    "label": "FX gain movement from 22/03/2026"
+  },
+  {
+    "date": "29/03/2026",
+    "value": -113682.36,
+    "label": "FX loss movement from 29/03/2026"
+  },
+  {
+    "date": "31/03/2026",
+    "value": -80753.85,
+    "label": "FX loss movement from 31/03/2026"
+  },
+  {
+    "date": "05/04/2026",
+    "value": 73510.16,
+    "label": "FX gain movement from 05/04/2026"
+  },
+  {
+    "date": "12/04/2026",
+    "value": 225965.32,
+    "label": "FX gain movement from 12/04/2026"
+  }
+];
+
+var TOTAL_RESTRICTED = RESTRICTED.reduce(function(s,r){return s+r.usd},0);
+var COLORS = ['#4f8cff','#38cfb8','#f0b040','#a78bfa','#f87171','#34d399','#fb923c','#60a5fa','#e879f9','#facc15','#2dd4bf','#818cf8','#f472b6'];
+var ccyC = {};
+var ccyList = []; DATA.forEach(function(d){ if(ccyList.indexOf(d.ccy)===-1) ccyList.push(d.ccy); }); ccyList.sort();
+ccyList.forEach(function(c,i){ ccyC[c]=COLORS[i%COLORS.length]; });
+var entC = {};
+var entList = []; DATA.forEach(function(d){ if(entList.indexOf(d.entity)===-1) entList.push(d.entity); }); entList.sort();
+entList.forEach(function(c,i){ entC[c]=COLORS[i%COLORS.length]; });
+
+var filtered = DATA.slice();
+var cSC=4, cSA=false, dSC=6, dSA=false;
+
+function init(){
+  var eS=document.getElementById('fEnt'), cS=document.getElementById('fCcy'), bS=document.getElementById('fBank');
+  var banks=[];
+  DATA.forEach(function(d){ var b=d.tag.split(' ')[0]; if(banks.indexOf(b)===-1) banks.push(b); });
+  banks.sort();
+  entList.forEach(function(e){ var o=document.createElement('option'); o.value=e; o.textContent=e; eS.appendChild(o); });
+  ccyList.forEach(function(c){ var o=document.createElement('option'); o.value=c; o.textContent=c; cS.appendChild(o); });
+  banks.forEach(function(b){ var o=document.createElement('option'); o.value=b; o.textContent=b; bS.appendChild(o); });
+  eS.addEventListener('change', applyF);
+  cS.addEventListener('change', applyF);
+  bS.addEventListener('change', applyF);
+  document.getElementById('fSearch').addEventListener('input', applyF);
+  applyF();
+}
+
+function applyF(){
+  var ent=document.getElementById('fEnt').value;
+  var ccy=document.getElementById('fCcy').value;
+  var bank=document.getElementById('fBank').value;
+  var q=document.getElementById('fSearch').value.toLowerCase();
+  filtered = DATA.filter(function(d){
+    if(ent!=='ALL' && d.entity!==ent) return false;
+    if(ccy!=='ALL' && d.ccy!==ccy) return false;
+    if(bank!=='ALL' && d.tag.indexOf(bank)!==0) return false;
+    if(q && d.tag.toLowerCase().indexOf(q)===-1 && d.acct.toLowerCase().indexOf(q)===-1 && d.entity.toLowerCase().indexOf(q)===-1) return false;
+    return true;
+  });
+  render();
+}
+
+function resetF(){
+  document.getElementById('fEnt').value='ALL';
+  document.getElementById('fCcy').value='ALL';
+  document.getElementById('fBank').value='ALL';
+  document.getElementById('fSearch').value='';
+  applyF();
+}
+
+function fU(v){ return '$'+Math.round(v).toLocaleString('en-US'); }
+function fU2(v){ return '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fL(v,c){ if(Math.abs(v)>=1e9) return (v/1e9).toFixed(1)+'B '+c; if(Math.abs(v)>=1e6) return (v/1e6).toFixed(1)+'M '+c; var d=((c==='KRW'||c==='JPY')?0:2); return v.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d})+' '+c; }
+function fD(v){ var a=Math.abs(v),s=v>=0?'+':'-'; if(a>=1e6) return s+'$'+(a/1e6).toFixed(1)+'M'; if(a>=1e3) return s+'$'+(a/1e3).toFixed(0)+'K'; return s+'$'+Math.round(a); }
+function fPct(v){ return v.toFixed(1)+'%'; }
+
+var chE, chC, chW, chFxC, chFxH;
+
+function render(){ renderKPIs(); renderEntChart(); renderCcyChart(); renderWoW(); renderFxCcy(); renderFxHist(); renderConsolT(); renderFxRatesT(); renderDetailT(); }
+
+function renderKPIs(){
+  var tot=0, wow=0, fxTotal=0, operTotal=0, entsSet={}, ccysSet={};
+  filtered.forEach(function(d){ tot+=d.usd; wow+=d.wow; fxTotal+=d.fx_impact; operTotal+=d.oper; entsSet[d.entity]=1; ccysSet[d.ccy]=1; });
+  var cgsTotal=0, cgsWow=0;
+  filtered.forEach(function(d){ if(d.entity==='CGS'){ cgsTotal+=d.usd; cgsWow+=d.wow; } });
+  var ents=Object.keys(entsSet), ccys=Object.keys(ccysSet);
+  var chainalysisTot = tot - cgsTotal; document.getElementById('k1').textContent = fU(chainalysisTot);
+  var d1 = document.getElementById('k1d');
+  var chainalysisWow = wow - cgsWow; d1.textContent = (chainalysisWow>=0?'▲ ':'▼ ') + fD(chainalysisWow) + ' WoW';
+  d1.className = 'kpi-delta ' + (chainalysisWow>=0?'up':'down');
+  document.getElementById('k2').textContent = fU(TOTAL_RESTRICTED);
+  var d2 = document.getElementById('k2d');
+  d2.textContent = '— $0 WoW';
+  d2.className = 'kpi-delta up';
+  document.getElementById('k3').textContent = fU(tot + TOTAL_RESTRICTED);
+  var d3 = document.getElementById('k3d');
+  d3.textContent = (wow>=0?'▲ ':'▼ ') + fD(wow) + ' WoW';
+  d3.className = 'kpi-delta ' + (wow>=0?'up':'down');
+  document.getElementById('k6').textContent = fD(fxTotal);
+  var d6 = document.getElementById('k6d');
+  d6.textContent = (fxTotal>=0?'▲ FX Gain':'▼ FX Loss');
+  d6.className = 'kpi-delta ' + (fxTotal>=0?'up':'down');
+  document.getElementById('k5').textContent = ccys.length + ' / ' + filtered.length;
+  document.getElementById('k7').textContent = fU(cgsTotal);
+  var d7 = document.getElementById('k7d');
+  d7.textContent = (cgsWow>=0?'▲ ':'▼ ') + fD(cgsWow) + ' WoW';
+  d7.className = 'kpi-delta ' + (cgsWow>=0?'up':'down');
+  document.getElementById('k5s').textContent = ccys.join(', ');
+}
+
+function renderEntChart(){
+  var m={};
+  filtered.forEach(function(d){ m[d.entity]=(m[d.entity]||0)+d.usd; });
+  var s=Object.entries(m).sort(function(a,b){return b[1]-a[1]});
+  var labels=s.map(function(e){return e[0]}), values=s.map(function(e){return e[1]}), colors=labels.map(function(l){return entC[l]});
+  if(chE) chE.destroy();
+  chE = new Chart(document.getElementById('chEnt'), {
+    type:'bar',
+    data:{ labels:labels, datasets:[{ data:values, backgroundColor:colors, borderRadius:6, maxBarThickness:44 }] },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        datalabels:{ anchor:'end', align:'end', color:'#e8ecf4', font:{size:11,weight:600},
+          formatter:function(v){ return v>=1e6 ? '$'+(v/1e6).toFixed(1)+'M' : fU(v); }
+        },
+        tooltip:{ callbacks:{ label:function(c){ return fU2(c.raw); } } }
+      },
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'#8c99b2', callback:function(v){return '$'+v/1e6+'M';}} },
+        y:{ grid:{display:false}, ticks:{color:'#e8ecf4', font:{weight:600}} }
+      }
+    },
+    plugins:[ChartDataLabels]
+  });
+}
+
+function renderCcyChart(){
+  var m={};
+  filtered.forEach(function(d){ m[d.ccy]=(m[d.ccy]||0)+d.usd; });
+  var s=Object.entries(m).sort(function(a,b){return b[1]-a[1]});
+  var labels=s.map(function(e){return e[0]}), values=s.map(function(e){return e[1]}), colors=labels.map(function(l){return ccyC[l]});
+  var total=values.reduce(function(a,b){return a+b},0);
+  if(chC) chC.destroy();
+  chC = new Chart(document.getElementById('chCcy'), {
+    type:'doughnut',
+    data:{ labels:labels, datasets:[{ data:values, backgroundColor:colors, borderWidth:2, borderColor:'#162035', hoverOffset:8 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{
+        legend:{ position:'right', labels:{color:'#e8ecf4', padding:12, font:{size:12}, usePointStyle:true, pointStyleWidth:10} },
+        datalabels:{ color:'#fff', font:{size:11,weight:700},
+          formatter:function(v){ return fPct(v/total*100); },
+          display:function(c){ return c.dataset.data[c.dataIndex]/total > .03; }
+        },
+        tooltip:{ callbacks:{ label:function(c){ return c.label+': '+fU2(c.raw)+' ('+fPct(c.raw/total*100)+')'; } } }
+      }
+    },
+    plugins:[ChartDataLabels]
+  });
+}
+
+function renderWoW(){
+  var m={};
+  filtered.forEach(function(d){ m[d.entity]=(m[d.entity]||0)+d.wow; });
+  var s=Object.entries(m).filter(function(e){return Math.abs(e[1])>0.5}).sort(function(a,b){return b[1]-a[1]});
+  var labels=s.map(function(e){return e[0]}), values=s.map(function(e){return e[1]});
+  var colors=values.map(function(v){return v>=0?'rgba(52,211,153,.8)':'rgba(248,113,113,.8)';});
+  if(chW) chW.destroy();
+  chW = new Chart(document.getElementById('chWoW'), {
+    type:'bar',
+    data:{ labels:labels, datasets:[{ data:values, backgroundColor:colors, borderRadius:5, maxBarThickness:38 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        datalabels:{
+          anchor:function(c){return c.dataset.data[c.dataIndex]>=0?'end':'start';},
+          align:function(c){return c.dataset.data[c.dataIndex]>=0?'end':'start';},
+          color:'#e8ecf4', font:{size:11,weight:600},
+          formatter:function(v){ return (Math.abs(v)>=1e6) ? (v>=0?'+':'')+'$'+(v/1e6).toFixed(1)+'M' : fD(v); }
+        },
+        tooltip:{ callbacks:{ label:function(c){return fD(c.raw);} } }
+      },
+      scales:{
+        x:{ grid:{display:false}, ticks:{color:'#e8ecf4', font:{weight:600}} },
+        y:{ grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'#8c99b2',
+          callback:function(v){
+            if(Math.abs(v)>=1e6) return (v>=0?'+':'-')+'$'+(Math.abs(v)/1e6).toFixed(1)+'M';
+            return (v>=0?'+':'-')+'$'+(Math.abs(v)/1e3).toFixed(0)+'K';
+          }
+        }}
+      }
+    },
+    plugins:[ChartDataLabels]
+  });
+}
+
+function renderFxCcy(){
+  var m={};
+  filtered.forEach(function(d){ if(d.ccy!=='USD' && d.ccy!=='AED') m[d.ccy]=(m[d.ccy]||0)+d.fx_impact; });
+  var s=Object.entries(m).sort(function(a,b){return b[1]-a[1]});
+  var labels=s.map(function(e){return e[0]}), values=s.map(function(e){return e[1]});
+  var colors=values.map(function(v){return v>=0?'rgba(52,211,153,.8)':'rgba(248,113,113,.8)';});
+
+  if(chFxC) chFxC.destroy();
+  chFxC = new Chart(document.getElementById('chFxCcy'), {
+    type:'bar',
+    data:{ labels:labels, datasets:[{ data:values, backgroundColor:colors, borderRadius:5, maxBarThickness:32 }] },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        datalabels:{ anchor:function(c){return c.dataset.data[c.dataIndex]>=0?'end':'start';},
+          align:function(c){return c.dataset.data[c.dataIndex]>=0?'end':'start';},
+          color:'#e8ecf4', font:{size:11,weight:600}, formatter:function(v){return fD(v);} },
+        tooltip:{ callbacks:{ label:function(c){return fD(c.raw);} } }
+      },
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'#8c99b2', callback:function(v){return fD(v);}} },
+        y:{ grid:{display:false}, ticks:{color:'#e8ecf4', font:{weight:600}} }
+      }
+    },
+    plugins:[ChartDataLabels]
+  });
+}
+
+function renderFxHist(){
+  if(!FXHISTORY.length) return;
+  var labels=FXHISTORY.map(function(h){return h.date;});
+  var values=FXHISTORY.map(function(h){return h.value;});
+  // Compute cumulative
+  var cumul=[], sum=0;
+  values.forEach(function(v){ sum+=v; cumul.push(sum); });
+  var barColors=values.map(function(v){return v>=0?'rgba(52,211,153,.6)':'rgba(248,113,113,.6)';});
+
+  if(chFxH) chFxH.destroy();
+  chFxH = new Chart(document.getElementById('chFxHist'), {
+    type:'bar',
+    data:{
+      labels:labels,
+      datasets:[
+        { type:'bar', label:'Weekly FX', data:values, backgroundColor:barColors, borderRadius:3, maxBarThickness:24, order:2 },
+        { type:'line', label:'Cumulative', data:cumul, borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.1)', pointBackgroundColor:'#a78bfa', pointRadius:3, borderWidth:2, fill:true, tension:0.3, order:1 }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ labels:{color:'#e8ecf4', font:{size:11}, usePointStyle:true} },
+        datalabels:{ display:false },
+        tooltip:{ callbacks:{ label:function(c){return c.dataset.label+': '+fD(c.raw);} } }
+      },
+      scales:{
+        x:{ grid:{display:false}, ticks:{color:'#8c99b2', font:{size:9}, maxRotation:45} },
+        y:{ grid:{color:'rgba(255,255,255,.05)'}, ticks:{color:'#8c99b2', callback:function(v){return fD(v);}} }
+      }
+    }
+  });
+}
+
+function renderConsolT(){
+  var m={};
+  filtered.forEach(function(d){
+    var k=d.entity+'|'+d.ccy;
+    if(!m[k]) m[k]={entity:d.entity, ccy:d.ccy, local:0, usd:0, fx:d.fx, wow:0, fxi:0};
+    m[k].local+=d.local; m[k].usd+=d.usd; m[k].wow+=d.wow; m[k].fxi+=d.fx_impact;
+  });
+  var rows=Object.values(m);
+  var totalUSD=rows.reduce(function(s,r){return s+r.usd},0);
+  var totalWoW=rows.reduce(function(s,r){return s+r.wow},0);
+  var totalFx=rows.reduce(function(s,r){return s+r.fxi},0);
+
+  var keys=[function(r){return r.entity},function(r){return r.ccy},function(r){return r.local},function(r){return r.fx},function(r){return r.usd},null,function(r){return r.wow},function(r){return r.fxi}];
+  var key=keys[cSC]||function(r){return r.usd};
+  rows.sort(function(a,b){
+    var va=key(a), vb=key(b);
+    if(typeof va==='string') return cSA?va.localeCompare(vb):vb.localeCompare(va);
+    return cSA?va-vb:vb-va;
+  });
+
+  var html='';
+  rows.forEach(function(r){
+    var dc=r.wow>=0?'pos':'neg';
+    var fc=r.fxi>=0?'pos':'neg';
+    html+='<tr><td><span class="eb">'+r.entity+'</span></td>'
+      +'<td><span class="cf"><span class="dot" style="background:'+ccyC[r.ccy]+'"></span>'+r.ccy+'</span></td>'
+      +'<td class="tr mono">'+fL(r.local,r.ccy)+'</td>'
+      +'<td class="mono" style="color:var(--dim)">'+r.fx.toFixed(6)+'</td>'
+      +'<td class="tr mono" style="font-weight:600">'+fU2(r.usd)+'</td>'
+      +'<td class="tr mono">'+(totalUSD?fPct(r.usd/totalUSD*100):'—')+'</td>'
+      +'<td class="tr mono '+dc+'">'+fD(r.wow)+'</td>'
+      +'<td class="tr mono '+fc+'">'+fD(r.fxi)+'</td></tr>';
+  });
+  html+='<tr class="total-row"><td colspan="4" style="text-align:right;font-weight:700">TOTAL CONSOLIDATED USD</td>'
+    +'<td class="tr mono" style="font-size:15px">'+fU2(totalUSD)+'</td>'
+    +'<td class="tr mono">100.0%</td>'
+    +'<td class="tr mono '+(totalWoW>=0?'pos':'neg')+'">'+fD(totalWoW)+'</td>'
+    +'<td class="tr mono '+(totalFx>=0?'pos':'neg')+'">'+fD(totalFx)+'</td></tr>';
+  document.getElementById('bConsol').innerHTML=html;
+}
+
+function renderFxRatesT(){
+  // Build unique currency rate table (non-USD only)
+  var seen={}, rows=[];
+  filtered.forEach(function(d){
+    if(d.ccy==='USD' || seen[d.ccy]) return;
+    seen[d.ccy]=1;
+    // Sum FX impact for this currency across all accounts
+    var fxSum=0;
+    filtered.forEach(function(dd){ if(dd.ccy===d.ccy) fxSum+=dd.fx_impact; });
+    rows.push({ccy:d.ccy, prior:d.prior_fx, current:d.fx, move:d.fx_move_pct, fxSum:fxSum});
+  });
+  rows.sort(function(a,b){return Math.abs(b.fxSum)-Math.abs(a.fxSum)});
+
+  var totalFx=rows.reduce(function(s,r){return s+r.fxSum},0);
+  var html='';
+  rows.forEach(function(r){
+    var fc=r.fxSum>=0?'pos':'neg';
+    var mc=r.move>=0?'pos':'neg';
+    html+='<tr>'
+      +'<td><span class="cf"><span class="dot" style="background:'+ccyC[r.ccy]+'"></span><b>'+r.ccy+'</b></span></td>'
+      +'<td class="tr mono" style="color:var(--dim)">'+r.prior.toFixed(6)+'</td>'
+      +'<td class="tr mono">'+r.current.toFixed(6)+'</td>'
+      +'<td class="tr mono '+(r.current-r.prior>=0?'pos':'neg')+'">'+(r.current-r.prior>=0?'+':'')+(r.current-r.prior).toFixed(6)+'</td>'
+      +'<td class="tr mono '+mc+'">'+(r.move>=0?'+':'')+fPct(r.move*100)+'</td>'
+      +'<td class="tr mono '+fc+'" style="font-weight:600">'+fD(r.fxSum)+'</td>'
+      +'</tr>';
+  });
+  html+='<tr class="total-row"><td colspan="5" style="text-align:right;font-weight:700">TOTAL FX IMPACT</td>'
+    +'<td class="tr mono '+(totalFx>=0?'pos':'neg')+'" style="font-size:14px;font-weight:700">'+fD(totalFx)+'</td></tr>';
+  document.getElementById('bFxRates').innerHTML=html;
+}
+
+function renderDetailT(){
+  var rows=filtered.slice();
+  var keys=[function(r){return r.entity},function(r){return r.tag},function(r){return r.ccy},function(r){return r.local},function(r){return r.fx},function(r){return r.usd},function(r){return r.wow},function(r){return r.fx_impact}];
+  var key=keys[dSC]||keys[6];
+  rows.sort(function(a,b){
+    var va=key(a), vb=key(b);
+    if(typeof va==='string') return dSA?va.localeCompare(vb):vb.localeCompare(va);
+    return dSA?va-vb:vb-va;
+  });
+
+  var html='';
+  rows.forEach(function(r){
+    var dc=r.wow>=0?'pos':'neg';
+    var fc=r.fx_impact>=0?'pos':'neg';
+    html+='<tr><td><span class="eb">'+r.entity+'</span></td>'
+      +'<td>'+r.tag+'</td>'
+      +'<td><span class="cf"><span class="dot" style="background:'+ccyC[r.ccy]+'"></span>'+r.ccy+'</span></td>'
+      +'<td class="tr mono">'+fL(r.local,r.ccy)+'</td>'
+      +'<td class="mono" style="color:var(--dim)">'+r.fx.toFixed(6)+'</td>'
+      +'<td class="tr mono" style="font-weight:600">'+fU2(r.usd)+'</td>'
+      +'<td class="tr mono '+dc+'">'+fD(r.wow)+'</td>'
+      +'<td class="tr mono '+fc+'">'+fD(r.fx_impact)+'</td></tr>';
+  });
+  document.getElementById('bDetail').innerHTML=html;
+}
+
+function sC(c){ if(cSC===c) cSA=!cSA; else { cSC=c; cSA=c<3; } renderConsolT(); }
+function sD(c){ if(dSC===c) dSA=!dSA; else { dSC=c; dSA=c<4; } renderDetailT(); }
+
+function refreshDashboard(){
+  var btn=document.querySelector(".refresh-btn");
+  btn.innerHTML="<span class=\"spin\" style=\"animation:spinning 1s linear infinite\">🔄</span> Refreshing...";
+  setTimeout(function(){ location.reload(true); },500);
+}
+
+// Display when this dashboard was last generated
+var footerDiv=document.createElement("div");
+footerDiv.style.cssText="text-align:center;padding:16px;color:var(--dim);font-size:11px;border-top:1px solid var(--border);margin-top:20px";
+footerDiv.innerHTML="Dashboard generated: 26 Apr 2026 \u2022 Last viewed: "+new Date().toLocaleString();
+document.body.appendChild(footerDiv);
+
+init();
+</script>
+</body>
+</html>
